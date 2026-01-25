@@ -15,14 +15,16 @@ function apiUrl(pathOrUrl) {
 }
 
 function withToken(url) {
-  if (!state.clientToken) return url;
+  // Ensure the token is applied to the API host (not the frontend host)
+  const full = apiUrl(url);
+  if (!state.clientToken) return full;
   try {
-    const u = new URL(url, window.location.href);
+    const u = new URL(full, window.location.href);
     if (!u.searchParams.get("token")) u.searchParams.set("token", state.clientToken);
     return u.toString();
   } catch {
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}token=${encodeURIComponent(state.clientToken)}`;
+    const sep = full.includes("?") ? "&" : "?";
+    return `${full}${sep}token=${encodeURIComponent(state.clientToken)}`;
   }
 }
 
