@@ -69,6 +69,10 @@ def _client_token(request: Request) -> str | None:
     tok = request.cookies.get("client_token")
     if tok:
         return tok
+    # Cross-domain frontend hosting: allow token via query parameter for <img>/<canvas> loads.
+    tok = request.query_params.get("token")
+    if tok:
+        return tok
     # Fallback: allow token via header for dev/testing.
     return request.headers.get("x-client-token")
 

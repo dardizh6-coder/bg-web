@@ -14,6 +14,18 @@ function apiUrl(pathOrUrl) {
   return `${API_BASE}${s}`;
 }
 
+function withToken(url) {
+  if (!state.clientToken) return url;
+  try {
+    const u = new URL(url, window.location.href);
+    if (!u.searchParams.get("token")) u.searchParams.set("token", state.clientToken);
+    return u.toString();
+  } catch {
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}token=${encodeURIComponent(state.clientToken)}`;
+  }
+}
+
 const state = {
   clientToken: null,
   paid: false,
@@ -376,7 +388,7 @@ async function pollJobUntilDone() {
           qs.set("shadow", "true");
           qs.set("snap", "true");
           qs.set("fmt", "png");
-          const img = await loadImage(`/api/render/preview?${qs.toString()}&t=${Date.now()}`);
+          const img = await loadImage(withToken(`/api/render/preview?${qs.toString()}&t=${Date.now()}`));
           drawImageCover(canvas, img);
         }
       } catch {}
@@ -473,7 +485,7 @@ async function renderBackgroundPreview() {
   qs.set("snap", "true");
   qs.set("fmt", "png");
 
-  const url = `/api/render/preview?${qs.toString()}&t=${Date.now()}`;
+  const url = withToken(`/api/render/preview?${qs.toString()}&t=${Date.now()}`);
   const img = await loadImage(url);
   drawImageCover(canvas, img);
 }
@@ -516,7 +528,7 @@ async function renderPositionPreview() {
 
   // Local composition: background thumb + cutout
   const bgSrc = apiUrl(state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`);
-  const carSrc = apiUrl(`/api/images/${imgId}/cutout.png`);
+  const carSrc = withToken(apiUrl(`/api/images/${imgId}/cutout.png`));
   const [bgImg, carImg] = await Promise.all([loadImage(bgSrc), loadImage(carSrc)]);
   drawLocalComposite(canvas, bgImg, carImg);
 }
@@ -545,7 +557,7 @@ async function renderFinalPreview() {
 
   // Local preview (instant). Download button still uses server render.
   const bgSrc = apiUrl(state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`);
-  const carSrc = apiUrl(`/api/images/${imgId}/cutout.png`);
+  const carSrc = withToken(apiUrl(`/api/images/${imgId}/cutout.png`));
   const [bgImg, carImg] = await Promise.all([loadImage(bgSrc), loadImage(carSrc)]);
   drawLocalComposite(canvas, bgImg, carImg);
 }
@@ -564,7 +576,7 @@ function downloadCurrent() {
   qs.set("shadow", String(!!state.shadow));
   qs.set("snap", "false");
   qs.set("fmt", fmt);
-  window.location.href = apiUrl(`/api/render/download?${qs.toString()}`);
+  window.location.href = withToken(apiUrl(`/api/render/download?${qs.toString()}`));
 }
 
 async function downloadAllZip() {
