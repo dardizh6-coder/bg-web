@@ -26,6 +26,9 @@ const state = {
 
   // per-image settings
   settings: [], // {x,y,rotate,scale,bgId,shadow}
+
+  // local preview caches (avoid server roundtrips while dragging sliders)
+  _imgCache: new Map(), // src -> HTMLImageElement
 };
 
 const screens = {
@@ -201,13 +204,53 @@ function sizeCanvasToParent(canvas, minW = 320, minH = 240) {
 }
 
 function loadImage(src) {
+  const cached = state._imgCache.get(src);
+  if (cached) return Promise.resolve(cached);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
+    img.onload = () => {
+      state._imgCache.set(src, img);
+      resolve(img);
+    };
     img.onerror = () => reject(new Error("Failed to load image"));
     img.src = src;
   });
+}
+
+function drawCover(ctx, w, h, img) {
+  const s = Math.max(w / img.width, h / img.height);
+  const dw = img.width * s;
+  const dh = img.height * s;
+  const x = (w - dw) / 2;
+  const y = (h - dh) / 2;
+  ctx.drawImage(img, x, y, dw, dh);
+}
+
+function drawLocalComposite(canvas, bgImg, carImg) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  // Background fills canvas
+  drawCover(ctx, w, h, bgImg);
+
+  // Car transform (fast client-side preview)
+  const base = Math.min(w / carImg.width, h / carImg.height);
+  const scale = base * (Number(state.carScale || 100) / 100);
+  const rot = (Number(state.carRotation || 0) * Math.PI) / 180;
+  const ox = Number(state.carPosition?.x || 0) * base;
+  const oy = Number(state.carPosition?.y || 0) * base;
+
+  ctx.save();
+  ctx.translate(w / 2 + ox, h / 2 + oy);
+  ctx.rotate(rot);
+  ctx.scale(scale, scale);
+  ctx.drawImage(carImg, -carImg.width / 2, -carImg.height / 2);
+  ctx.restore();
 }
 
 function ensureDefaultSettings() {
@@ -452,20 +495,11 @@ async function renderPositionPreview() {
 
   sizeCanvasToParent(canvas, 320, 240);
 
-  const qs = new URLSearchParams();
-  qs.set("image_id", imgId);
-  qs.set("bg_id", state.currentBgId);
-  qs.set("rotate", String(state.carRotation));
-  qs.set("scale", String(state.carScale / 100));
-  qs.set("x", String(state.carPosition.x));
-  qs.set("y", String(state.carPosition.y));
-  qs.set("shadow", String(!!state.shadow));
-  qs.set("snap", "false");
-  qs.set("fmt", "png");
-
-  const url = `/api/render/preview?${qs.toString()}&t=${Date.now()}`;
-  const img = await loadImage(url);
-  drawImageCover(canvas, img);
+  // Local composition: background thumb + cutout
+  const bgSrc = state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`;
+  const carSrc = `/api/images/${imgId}/cutout.png`;
+  const [bgImg, carImg] = await Promise.all([loadImage(bgSrc), loadImage(carSrc)]);
+  drawLocalComposite(canvas, bgImg, carImg);
 }
 
 function moveCar(dx, dy) {
@@ -490,20 +524,11 @@ async function renderFinalPreview() {
 
   sizeCanvasToParent(canvas, 320, 240);
 
-  const qs = new URLSearchParams();
-  qs.set("image_id", imgId);
-  qs.set("bg_id", state.currentBgId);
-  qs.set("rotate", String(state.carRotation));
-  qs.set("scale", String(state.carScale / 100));
-  qs.set("x", String(state.carPosition.x));
-  qs.set("y", String(state.carPosition.y));
-  qs.set("shadow", String(!!state.shadow));
-  qs.set("snap", "false");
-  qs.set("fmt", "png");
-
-  const url = `/api/render/preview?${qs.toString()}&t=${Date.now()}`;
-  const img = await loadImage(url);
-  drawImageCover(canvas, img);
+  // Local preview (instant). Download button still uses server render.
+  const bgSrc = state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`;
+  const carSrc = `/api/images/${imgId}/cutout.png`;
+  const [bgImg, carImg] = await Promise.all([loadImage(bgSrc), loadImage(carSrc)]);
+  drawLocalComposite(canvas, bgImg, carImg);
 }
 
 function downloadCurrent() {
