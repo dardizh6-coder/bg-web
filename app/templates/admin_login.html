@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Login</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f5f9ff; color: #0b1b3a;}
+      .wrap { max-width: 520px; margin: 8vh auto; padding: 24px; }
+      .card { background: #fff; border: 1px solid #dbe7ff; border-radius: 16px; padding: 18px; box-shadow: 0 14px 34px rgba(29,78,216,0.10); }
+      h1 { margin: 0 0 14px; font-size: 18px; letter-spacing: 0.2px; }
+      label { display:block; font-size: 12px; opacity: 0.75; margin-bottom: 6px;}
+      input { width:100%; padding: 12px 12px; border-radius: 12px; border: 1px solid #c7d8ff; background: #fff; color: #0b1b3a; }
+      button { margin-top: 12px; width:100%; padding: 12px; border-radius: 12px; border: 0; background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: white; font-weight: 700; cursor: pointer; box-shadow: 0 10px 22px rgba(29,78,216,0.18); }
+      .err { margin-top: 10px; background: rgba(29,78,216,0.08); border: 1px solid rgba(29,78,216,0.22); padding: 10px 12px; border-radius: 12px; font-size: 13px; }
+      .hint { margin-top: 10px; opacity: 0.7; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>Admin</h1>
+        <form method="post" action="/admin/login">
+          <label>Password</label>
+          <input name="password" type="password" autocomplete="current-password" required />
+          <button type="submit">Sign in</button>
+        </form>
+        {% if error %}
+        <div class="err">{{ error }}</div>
+        {% endif %}
+        <div class="hint">Set <code>ADMIN_PASSWORD</code> and <code>APP_SECRET</code> in your environment.</div>
+      </div>
+    </div>
+  </body>
+</html>

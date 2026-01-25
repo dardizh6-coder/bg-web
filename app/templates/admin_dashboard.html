@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Dashboard</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f5f9ff; color: #0b1b3a;}
+      .top { display:flex; align-items:center; justify-content:space-between; padding: 14px 16px; border-bottom: 1px solid #dbe7ff; background: rgba(255,255,255,0.82); backdrop-filter: blur(10px); position: sticky; top: 0; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; }
+      .grid { display:grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
+      .card { background: #fff; border: 1px solid #dbe7ff; border-radius: 16px; padding: 14px; box-shadow: 0 12px 26px rgba(29,78,216,0.06); }
+      .k { font-size: 11px; opacity: 0.7; margin-bottom: 6px; }
+      .v { font-size: 18px; font-weight: 700; }
+      .sub { opacity: 0.7; font-size: 12px; margin-top: 2px; }
+      h2 { font-size: 14px; margin: 18px 0 10px; opacity: 0.9;}
+      table { width:100%; border-collapse: collapse; }
+      th, td { border-bottom: 1px solid #e6efff; padding: 10px 8px; text-align:left; font-size: 12px; vertical-align: top; }
+      th { opacity: 0.8; font-weight: 600; }
+      .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid rgba(29,78,216,0.18); background: rgba(29,78,216,0.06); opacity: 0.95;}
+      .muted { opacity: 0.7; }
+      .btn { background: linear-gradient(135deg, #1d4ed8, #3b82f6); border:0; color:#fff; padding: 8px 10px; border-radius: 12px; cursor:pointer; font-weight:700; box-shadow: 0 10px 22px rgba(29,78,216,0.18);}
+      .btn:hover { filter: brightness(1.02); }
+      @media (max-width: 980px) { .grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); } }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <div>
+        <div style="font-weight:700">Admin Dashboard</div>
+        <div class="muted" style="font-size:12px">Live stats from SQLite</div>
+      </div>
+      <form method="post" action="/admin/logout">
+        <button class="btn" type="submit">Logout</button>
+      </form>
+    </div>
+
+    <div class="wrap">
+      <div class="grid">
+        <div class="card">
+          <div class="k">Uploads</div>
+          <div class="v">{{ stats.uploads }}</div>
+        </div>
+        <div class="card">
+          <div class="k">Processed</div>
+          <div class="v">{{ stats.processed }}</div>
+        </div>
+        <div class="card">
+          <div class="k">Payments</div>
+          <div class="v">{{ stats.payments }}</div>
+          <div class="sub">Revenue: {{ '%.2f'|format(revenue_chf) }} CHF</div>
+        </div>
+        <div class="card">
+          <div class="k">Watermark removals</div>
+          <div class="v">{{ stats.watermark_removals }}</div>
+        </div>
+        <div class="card">
+          <div class="k">App time</div>
+          <div class="v">{{ now }}</div>
+          <div class="sub">Unix seconds</div>
+        </div>
+      </div>
+
+      <h2>Recent logs</h2>
+      <div class="card" style="padding:0; overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">ts</th>
+              <th style="width:90px">level</th>
+              <th style="width:220px">event</th>
+              <th>detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in logs %}
+            <tr>
+              <td class="muted">{{ l.ts }}</td>
+              <td><span class="pill">{{ l.level }}</span></td>
+              <td>{{ l.event }}</td>
+              <td class="muted" style="white-space:pre-wrap">{{ l.detail }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

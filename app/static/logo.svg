@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="140" viewBox="0 0 560 140" role="img" aria-label="Aucto.ch">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#1d4ed8" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Car outline -->
+  <g fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#s)">
+    <path d="M40 62c34-22 102-32 168-32 52 0 108 8 142 26 18 10 26 18 36 30" />
+    <path d="M54 78h56" />
+    <path d="M116 78h180" />
+    <path d="M304 78h90" />
+    <path d="M240 40c-22 4-44 20-58 42" />
+    <path d="M260 40c22 2 54 10 70 38" />
+  </g>
+
+  <!-- Wordmark -->
+  <text x="46" y="124" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="78" font-weight="800" fill="url(#g)" letter-spacing="-0.5">
+    Aucto<tspan font-weight="800">.ch</tspan>
+  </text>
+</svg>
+

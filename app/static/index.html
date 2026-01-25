@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Aucto.ch – KI-Hintergrundentfernung und Showroom-Bilder für Autos">
+    <meta name="theme-color" content="#1d4ed8">
+    <title>Aucto.ch – KI-Hintergrundentfernung</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <a href="/" class="logo-container">
+                    <img src="/static/logo.png" alt="Aucto.ch" class="logo-img" id="header-logo">
+                    <span class="logo-fallback" id="logo-fallback">Aucto.ch</span>
+                </a>
+                <div style="display:flex; gap:10px; align-items:center">
+                  <div id="paidPill" class="pill hidden">Paid • Watermark off</div>
+                  <button id="help-btn" class="icon-btn" title="Help">?</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Optional Ad banner (free users only) -->
+        <div id="adBanner" class="ad-container ad-top" style="display:none">
+          <div id="adSlot"></div>
+        </div>
+
+        <!-- Screen 1: Landing / Upload Screen -->
+        <div id="screen-upload" class="screen active">
+            <div class="upload-container">
+                <div class="upload-hero">
+                    <h2 class="hero-title">Transform car photos into professional showroom images</h2>
+                    <p class="hero-subtitle">Local background removal and clean dealership backgrounds in seconds</p>
+                </div>
+
+                <!-- Drag and Drop Zone -->
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <svg class="upload-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <h3>Drag & drop your car photos here</h3>
+                        <p>or</p>
+                        <button id="upload-btn" class="btn-primary-large" type="button">Choose File</button>
+                        <input type="file" id="file-input" accept="image/*" multiple style="display: none;" aria-label="Upload car images">
+                        <div class="upload-options">
+                            <button id="paste-btn" class="btn-link">📋 Paste from Clipboard</button>
+                            <button id="gallery-btn" class="btn-link">📷 Choose from Gallery</button>
+                        </div>
+                        <p class="upload-hint">⚠️ Use EXTERIOR pictures only (no interior/cabin photos)</p>
+                    </div>
+                </div>
+
+                <!-- Batch Upload Hint -->
+                <div class="batch-hint">
+                    <p>💡 <strong>Tip:</strong> Select multiple images (10–15) for batch processing</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 2: Processing Screen -->
+        <div id="screen-processing" class="screen">
+            <div class="processing-container">
+                <div class="processing-layout">
+                    <!-- Left: Original -->
+                    <div class="image-panel">
+                        <div class="panel-header">
+                            <h3>Original</h3>
+                        </div>
+                        <div class="image-container">
+                            <img id="original-image" src="" alt="Original car photo">
+                            <div id="original-overlay" class="image-overlay"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Preview -->
+                    <div class="image-panel">
+                        <div class="panel-header">
+                            <h3>Preview</h3>
+                        </div>
+                        <div class="image-container">
+                            <canvas id="preview-canvas"></canvas>
+                            <div id="processing-overlay" class="processing-overlay">
+                                <div class="processing-content">
+                                    <div id="processing-spinner" class="spinner"></div>
+                                    <p id="processing-status">Uploading...</p>
+                                    <div class="progress-bar">
+                                        <div id="progress-fill" class="progress-fill"></div>
+                                    </div>
+                                    <div id="processing-error-actions" style="display: none; margin-top: 12px;">
+                                        <button type="button" id="processing-back-btn" class="btn-secondary">← Back to upload</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Bar -->
+                <div class="status-bar">
+                    <div class="status-step active" data-step="upload">
+                        <div class="step-icon">1</div>
+                        <span>Uploading</span>
+                    </div>
+                    <div class="status-step" data-step="remove">
+                        <div class="step-icon">2</div>
+                        <span>Removing Background</span>
+                    </div>
+                    <div class="status-step" data-step="showroom">
+                        <div class="step-icon">3</div>
+                        <span>Applying Showroom</span>
+                    </div>
+                    <div class="status-step" data-step="done">
+                        <div class="step-icon">✓</div>
+                        <span>Ready!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3: Background Selection Screen -->
+        <div id="screen-background" class="screen">
+            <div class="background-container">
+                <div class="background-hero">
+                    <h2>Choose Your Showroom Background</h2>
+                    <p>Select a background for your car</p>
+                </div>
+
+                <!-- Preview Canvas -->
+                <div class="background-preview-wrapper">
+                    <div class="canvas-container">
+                        <canvas id="background-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Background Library -->
+                <div class="background-library-section">
+                    <div class="control-section">
+                        <h3>Background Library</h3>
+                        <div class="search-upload">
+                            <input type="text" id="bg-search" placeholder="Search backgrounds..." class="search-input" aria-label="Search backgrounds">
+                        </div>
+                        <div id="background-thumbnails" class="thumbnail-grid"></div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button id="bg-back-btn" class="btn-secondary">← Back</button>
+                        <button id="bg-next-btn" class="btn-primary">Continue to Position →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 4: Position & Rotation Screen -->
+        <div id="screen-position" class="screen">
+            <div class="position-container">
+                <!-- Main Canvas -->
+                <div class="position-canvas-wrapper">
+                    <!-- Image Navigation (if multiple images) -->
+                    <div id="image-navigation" class="image-navigation" style="display: none;">
+                        <button id="prev-image-btn" class="btn-icon" title="Previous Image">←</button>
+                        <span class="image-counter">
+                            <span id="current-image-number">1</span> / <span id="total-images-number">1</span>
+                        </span>
+                        <button id="next-image-btn" class="btn-icon" title="Next Image">→</button>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas id="position-canvas"></canvas>
+                        <div class="canvas-controls">
+                            <button id="reset-position-btn" class="btn-icon" title="Reset Position">↺</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Position Controls (Desktop) -->
+                <div class="position-sidebar">
+                    <div class="control-section">
+                        <h3>Adjust Position & Rotation</h3>
+                        <div class="adjust-controls">
+                            <div class="control-item">
+                                <label>Position</label>
+                                <div class="position-controls">
+                                    <button id="move-left" class="btn-icon-small">←</button>
+                                    <button id="move-right" class="btn-icon-small">→</button>
+                                    <button id="move-up" class="btn-icon-small">↑</button>
+                                    <button id="move-down" class="btn-icon-small">↓</button>
+                                </div>
+                            </div>
+                            <div class="control-item">
+                                <label for="rotation-slider">Rotation: <span id="rotation-display">0°</span></label>
+                                <input type="range" id="rotation-slider" min="-20" max="20" step="0.5" value="0" aria-label="Rotation slider">
+                            </div>
+                            <div class="control-item">
+                                <label for="scale-slider">Scale: <span id="scale-display">100%</span></label>
+                                <input type="range" id="scale-slider" min="50" max="150" step="1" value="100" aria-label="Scale slider">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="position-back-btn" class="btn-secondary">← Back</button>
+                        <button id="position-next-btn" class="btn-primary">Continue to Download →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 5: Download Screen -->
+        <div id="screen-download" class="screen">
+            <div class="download-container">
+                <div class="download-hero">
+                    <h2>Your photo is ready!</h2>
+                    <p>Download in your preferred format</p>
+                </div>
+
+                <div class="download-preview">
+                    <canvas id="final-canvas"></canvas>
+                </div>
+
+                <!-- Watermark Notice & Remove Button -->
+                <div id="watermark-notice" class="watermark-notice" style="display: none;">
+                    <div class="watermark-content">
+                        <div class="watermark-icon">🔒</div>
+                        <div class="watermark-text">
+                            <strong>Watermarked Version</strong>
+                            <p>Download without watermark for 1.99 CHF (one-time)</p>
+                        </div>
+                        <button id="remove-watermark-btn" class="btn-primary">Download without watermark</button>
+                    </div>
+                </div>
+
+                <div class="download-options">
+                    <div class="option-group">
+                        <label>Format</label>
+                        <div class="format-buttons">
+                            <button class="format-btn active" data-format="png">PNG</button>
+                            <button class="format-btn" data-format="jpg">JPG</button>
+                        </div>
+                    </div>
+
+                    <button id="download-btn" class="btn-primary-large">Download Image</button>
+                    <button id="batch-download-btn" class="btn-secondary">Download All (Batch)</button>
+                    <button id="start-over-btn" class="btn-link">Start Over</button>
+                </div>
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            <a href="/admin" class="footer-admin-link">Admin</a>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
