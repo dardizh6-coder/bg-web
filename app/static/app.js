@@ -4,6 +4,16 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+// If you host the frontend separately (e.g. 1a-hosting), set this BEFORE loading app.js:
+//   <script>window.API_BASE_URL="https://bg-web-production.up.railway.app";</script>
+const API_BASE = String(window.API_BASE_URL || "").replace(/\/+$/, "");
+function apiUrl(pathOrUrl) {
+  const s = String(pathOrUrl || "");
+  if (!s) return s;
+  if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:") || s.startsWith("blob:")) return s;
+  return `${API_BASE}${s}`;
+}
+
 const state = {
   clientToken: null,
   paid: false,
@@ -48,7 +58,15 @@ function uid() {
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, { credentials: "include", ...opts });
+  const headers = { ...(opts.headers || {}) };
+  if (state.clientToken) headers["x-client-token"] = state.clientToken;
+
+  const res = await fetch(apiUrl(path), {
+    // Cross-domain hosting: don't rely on cookies (third-party cookies are often blocked).
+    credentials: "omit",
+    ...opts,
+    headers,
+  });
   if (!res.ok) {
     const txt = await res.text();
     try {
@@ -204,17 +222,18 @@ function sizeCanvasToParent(canvas, minW = 320, minH = 240) {
 }
 
 function loadImage(src) {
-  const cached = state._imgCache.get(src);
+  const resolved = apiUrl(src);
+  const cached = state._imgCache.get(resolved);
   if (cached) return Promise.resolve(cached);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      state._imgCache.set(src, img);
+      state._imgCache.set(resolved, img);
       resolve(img);
     };
     img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = src;
+    img.src = resolved;
   });
 }
 
@@ -393,7 +412,7 @@ async function pollJobUntilDone() {
 // ---- Background selection ----
 async function loadBackgrounds() {
   const res = await api("/api/backgrounds");
-  state.backgrounds = res.backgrounds || [];
+  state.backgrounds = (res.backgrounds || []).map((b) => ({ ...b, thumb_url: apiUrl(b.thumb_url) }));
   if (!state.currentBgId && state.backgrounds[0]) state.currentBgId = state.backgrounds[0].id;
 }
 
@@ -411,7 +430,7 @@ function renderBackgroundThumbnails(filterText = "") {
     const div = document.createElement("div");
     div.className = "thumbnail";
     div.dataset.bgId = bg.id;
-    div.innerHTML = `<img src="${bg.thumb_url}" alt="${bg.name}" loading="lazy"><span>${bg.name}</span>`;
+    div.innerHTML = `<img src="${apiUrl(bg.thumb_url)}" alt="${bg.name}" loading="lazy"><span>${bg.name}</span>`;
     div.addEventListener("click", async () => {
       state.currentBgId = bg.id;
       saveSettingsForCurrent();
@@ -496,8 +515,8 @@ async function renderPositionPreview() {
   sizeCanvasToParent(canvas, 320, 240);
 
   // Local composition: background thumb + cutout
-  const bgSrc = state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`;
-  const carSrc = `/api/images/${imgId}/cutout.png`;
+  const bgSrc = apiUrl(state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`);
+  const carSrc = apiUrl(`/api/images/${imgId}/cutout.png`);
   const [bgImg, carImg] = await Promise.all([loadImage(bgSrc), loadImage(carSrc)]);
   drawLocalComposite(canvas, bgImg, carImg);
 }
@@ -525,8 +544,8 @@ async function renderFinalPreview() {
   sizeCanvasToParent(canvas, 320, 240);
 
   // Local preview (instant). Download button still uses server render.
-  const bgSrc = state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`;
-  const carSrc = `/api/images/${imgId}/cutout.png`;
+  const bgSrc = apiUrl(state.backgrounds.find((b) => b.id === state.currentBgId)?.thumb_url || `/api/backgrounds/${state.currentBgId}/thumb.png`);
+  const carSrc = apiUrl(`/api/images/${imgId}/cutout.png`);
   const [bgImg, carImg] = await Promise.all([loadImage(bgSrc), loadImage(carSrc)]);
   drawLocalComposite(canvas, bgImg, carImg);
 }
@@ -545,7 +564,7 @@ function downloadCurrent() {
   qs.set("shadow", String(!!state.shadow));
   qs.set("snap", "false");
   qs.set("fmt", fmt);
-  window.location.href = `/api/render/download?${qs.toString()}`;
+  window.location.href = apiUrl(`/api/render/download?${qs.toString()}`);
 }
 
 async function downloadAllZip() {
@@ -564,10 +583,10 @@ async function downloadAllZip() {
     };
   });
 
-  const res = await fetch("/api/render/zip", {
+  const res = await fetch(apiUrl("/api/render/zip"), {
     method: "POST",
-    credentials: "include",
-    headers: { "content-type": "application/json" },
+    credentials: "omit",
+    headers: { "content-type": "application/json", "x-client-token": state.clientToken },
     body: JSON.stringify({ items, fmt }),
   });
   if (!res.ok) throw new Error(await res.text());

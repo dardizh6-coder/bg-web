@@ -52,6 +52,11 @@ class Settings:
         except Exception:
             self.MAX_WORKERS = 1 if self.APP_ENV == "production" else 2
 
+        # CORS for hosting frontend separately (comma-separated origins).
+        # Example: CORS_ORIGINS=https://rbg.aucto.ch,https://www.rbg.aucto.ch
+        raw = _env("CORS_ORIGINS", "") or ""
+        self.CORS_ORIGINS: list[str] = [o.strip() for o in raw.split(",") if o.strip()]
+
 
 settings = Settings()
 

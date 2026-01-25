@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -25,6 +26,18 @@ from app.worker import remove_background_to_file
 
 
 app = FastAPI(title="Car Photo Processor", version="1.0.0")
+
+if getattr(settings, "CORS_ORIGINS", None):
+    origins = settings.CORS_ORIGINS
+    allow_credentials = False if "*" in origins else True
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins if origins else [],
+        allow_credentials=allow_credentials,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 app.include_router(admin_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
