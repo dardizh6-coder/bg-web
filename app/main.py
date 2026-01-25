@@ -13,7 +13,6 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from rembg import new_session
 
 from app.admin import router as admin_router
 from app.backgrounds import BACKGROUNDS, generate_background
@@ -42,10 +41,10 @@ def _startup() -> None:
     db = Db(path=db_path())
     db.init()
     app.state.db = db
-    app.state.executor = ThreadPoolExecutor(max_workers=2)
-    # Local model (loaded once). Default is U²-Net (quality).
-    app.state.rembg_session = new_session(settings.RMBG_MODEL)
-    db.log("info", "app.start", f"env={settings.APP_ENV}")
+    app.state.executor = ThreadPoolExecutor(max_workers=max(1, int(getattr(settings, "MAX_WORKERS", 1) or 1)))
+    # Rembg model session is loaded lazily on first job (prevents slow/OOM startup on small containers).
+    app.state.rembg_session = None
+    db.log("info", "app.start", f"env={settings.APP_ENV} workers={getattr(settings, 'MAX_WORKERS', 1)} model={settings.RMBG_MODEL}")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -160,8 +159,14 @@ async def create_job(request: Request, files: list[UploadFile] = File(...)) -> A
         original_path = originals_dir() / f"{image_id}_{fname}"
         cutout_path = cutouts_dir() / f"{image_id}.png"
 
-        content = await f.read()
-        original_path.write_bytes(content)
+        # Stream upload to disk (avoid reading full file into RAM on Railway)
+        await f.seek(0)
+        with original_path.open("wb") as out:
+            while True:
+                chunk = await f.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
 
         with db.connect() as conn:
             conn.execute(

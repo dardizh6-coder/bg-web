@@ -41,7 +41,16 @@ class Settings:
         self.ADSENSE_SLOT: str = _env("ADSENSE_SLOT", "") or ""
 
         self.DATA_DIR: str = _env("DATA_DIR", "data") or "data"
-        self.RMBG_MODEL: str = _env("RMBG_MODEL", "u2net") or "u2net"
+        # Use a lighter default model in production to reduce memory usage on small containers.
+        default_model = "u2netp" if self.APP_ENV == "production" else "u2net"
+        self.RMBG_MODEL: str = _env("RMBG_MODEL", default_model) or default_model
+
+        # Concurrency: keep low in production to avoid OOM on small containers.
+        default_workers = "1" if self.APP_ENV == "production" else "2"
+        try:
+            self.MAX_WORKERS: int = int(_env("MAX_WORKERS", default_workers) or default_workers)
+        except Exception:
+            self.MAX_WORKERS = 1 if self.APP_ENV == "production" else 2
 
 
 settings = Settings()
