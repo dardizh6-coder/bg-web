@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Callable
 
 from PIL import Image
-from rembg import new_session, remove
 
 from app.config import settings
 
@@ -21,6 +20,10 @@ def _get_session() -> object:
 
     On small containers, loading/downloading the model at startup can get the process killed.
     """
+    # Import rembg lazily so the app can boot even on small containers.
+    # (OpenCV + rembg import can be heavy and may fail if system libs are missing.)
+    from rembg import new_session
+
     global _session, _session_model
     if _session is not None and _session_model == settings.RMBG_MODEL:
         return _session
@@ -40,6 +43,9 @@ def remove_background_to_file(
     on_success: Callable[[int, int], None],
 ) -> None:
     try:
+        # Import lazily to avoid crashing the web server during startup.
+        from rembg import remove
+
         if session is None:
             session = _get_session()
         raw = original_path.read_bytes()
