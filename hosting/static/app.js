@@ -358,8 +358,26 @@ async function startProcessing(files) {
 
 async function pollJobUntilDone() {
   let done = false;
+  let netFails = 0;
   while (!done) {
-    const st = await api(`/api/jobs/${state.jobId}`);
+    let st;
+    try {
+      st = await api(`/api/jobs/${state.jobId}`);
+      netFails = 0;
+    } catch (e) {
+      // Be resilient to short disconnects / flaky connections.
+      netFails += 1;
+      const msg = String(e?.message || e || "");
+      // If we keep failing, give the user a clear action.
+      if (netFails >= 6) {
+        const actions = $("#processing-error-actions");
+        if (actions) actions.style.display = "block";
+        throw new Error(`Network error while processing. Please check your connection and try again.\n\n${msg}`);
+      }
+      setProcessing("Connection lost… retrying", 55);
+      await new Promise((r) => setTimeout(r, Math.min(3000, 700 + netFails * 300)));
+      continue;
+    }
     const imgs = st.images || [];
     // merge
     state.images = state.images.map((old) => {
