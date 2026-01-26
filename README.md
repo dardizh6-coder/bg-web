@@ -28,10 +28,13 @@ Copy `.env.example` → `.env` and set:
 
 ## Notes
 
-- The background removal model is loaded once on startup and reused.
+- The background removal model is loaded lazily on first use and reused.
 - First run may download model weights locally (still “local processing”, no API calls).
+- Backgrounds are loaded from the `images/` folder (if present).
 
 ## Deploy (Railway)
 
 - Use the included `Dockerfile`
 - Set the env vars in Railway
+- If your frontend is hosted on another domain (example: `https://rbg.aucto.ch`), set:
+  - `CORS_ORIGINS=https://rbg.aucto.ch,https://www.rbg.aucto.ch`
