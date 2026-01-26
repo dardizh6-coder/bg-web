@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.admin import router as admin_router
-from app.backgrounds import BACKGROUNDS, generate_background
+from app.backgrounds import generate_background, list_backgrounds
 from app.config import settings
 from app.db import Db
 from app.image_processing import RenderParams, clamp_preview, encode_image, render_composite
@@ -129,7 +129,7 @@ def list_backgrounds() -> dict[str, Any]:
                 "description": b.description,
                 "thumb_url": f"/api/backgrounds/{b.id}/thumb.png",
             }
-            for b in BACKGROUNDS
+            for b in list_backgrounds()
         ]
     }
 

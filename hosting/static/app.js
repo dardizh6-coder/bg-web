@@ -325,7 +325,7 @@ async function startProcessing(files) {
   showScreen("processing");
   showProcessingOverlay(true);
   setStatusStep("upload");
-  setProcessing("Uploading…", 20);
+  setProcessing("Uploading...", 20);
 
   // show original preview image
   try {
@@ -352,7 +352,7 @@ async function startProcessing(files) {
   state.settings = [];
 
   setStatusStep("remove");
-  setProcessing("Removing background…", 55);
+  setProcessing("Removing background...", 55);
   await pollJobUntilDone();
 }
 
@@ -368,13 +368,31 @@ async function pollJobUntilDone() {
       // Be resilient to short disconnects / flaky connections.
       netFails += 1;
       const msg = String(e?.message || e || "");
+      // If the browser is offline, wait until we're online again (no hard failure).
+      if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) {
+        setProcessing("Offline... waiting for connection", 55);
+        await new Promise((resolve) => {
+          const onOnline = () => {
+            window.removeEventListener("online", onOnline);
+            resolve();
+          };
+          window.addEventListener("online", onOnline, { once: true });
+          // Fallback: in case the event doesn't fire.
+          setTimeout(() => {
+            window.removeEventListener("online", onOnline);
+            resolve();
+          }, 15000);
+        });
+        continue;
+      }
       // If we keep failing, give the user a clear action.
       if (netFails >= 6) {
         const actions = $("#processing-error-actions");
         if (actions) actions.style.display = "block";
         throw new Error(`Network error while processing. Please check your connection and try again.\n\n${msg}`);
       }
-      setProcessing("Connection lost… retrying", 55);
+      // Use ASCII only so hosting doesn't show mojibake (â€¦).
+      setProcessing("Connection lost... retrying", 55);
       await new Promise((r) => setTimeout(r, Math.min(3000, 700 + netFails * 300)));
       continue;
     }
@@ -387,7 +405,7 @@ async function pollJobUntilDone() {
 
     const ready = imgs.filter((x) => x.status === "ready").length;
     const total = imgs.length || 1;
-    setProcessing(`Processing ${ready}/${total}…`, 55 + Math.round((ready / total) * 40));
+    setProcessing(`Processing ${ready}/${total}...`, 55 + Math.round((ready / total) * 40));
 
     // preview-canvas: show first ready composite (fills the whole preview panel)
     const firstReady = imgs.find((x) => x.status === "ready");

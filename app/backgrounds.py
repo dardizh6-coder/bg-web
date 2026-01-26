@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -12,7 +13,7 @@ class BackgroundDef:
     description: str
 
 
-BACKGROUNDS: list[BackgroundDef] = [
+BUILTIN_BACKGROUNDS: list[BackgroundDef] = [
     BackgroundDef(
         id="studio_neutral",
         name="Neutral studio",
@@ -34,6 +35,111 @@ BACKGROUNDS: list[BackgroundDef] = [
         description="Modern silver/gray gradient background.",
     ),
 ]
+
+
+def _images_dir() -> Path:
+    # backgrounds.py lives in /app/app/backgrounds.py → project root is /app
+    root = Path(__file__).resolve().parents[1]
+    return root / "images"
+
+
+def _slugify(s: str) -> str:
+    out = []
+    prev_dash = False
+    for ch in s.lower():
+        if ch.isalnum():
+            out.append(ch)
+            prev_dash = False
+        else:
+            if not prev_dash:
+                out.append("-")
+                prev_dash = True
+    slug = "".join(out).strip("-")
+    return slug or "background"
+
+
+def _human_name_from_filename(stem: str) -> str:
+    # premium_showroom_1 -> Premium Showroom 1
+    s = stem.replace("_", " ").replace("-", " ").strip()
+    parts = [p for p in s.split() if p]
+    return " ".join(p[:1].upper() + p[1:] for p in parts) if parts else "Background"
+
+
+_ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def file_backgrounds() -> list[BackgroundDef]:
+    """Load backgrounds from /images folder.
+
+    Each file becomes a background id based on filename.
+    """
+    d = _images_dir()
+    if not d.exists() or not d.is_dir():
+        return []
+
+    items: list[BackgroundDef] = []
+    seen: set[str] = set()
+    for p in sorted(d.iterdir()):
+        if not p.is_file():
+            continue
+        if p.suffix.lower() not in _ALLOWED_EXTS:
+            continue
+        bg_id = _slugify(p.stem)
+        # ensure unique ids
+        base = bg_id
+        i = 2
+        while bg_id in seen:
+            bg_id = f"{base}-{i}"
+            i += 1
+        seen.add(bg_id)
+        items.append(
+            BackgroundDef(
+                id=bg_id,
+                name=_human_name_from_filename(p.stem),
+                description="",
+            )
+        )
+    return items
+
+
+def list_backgrounds() -> list[BackgroundDef]:
+    """Prefer file backgrounds; fallback to built-ins if none exist."""
+    fb = file_backgrounds()
+    return fb if fb else BUILTIN_BACKGROUNDS
+
+
+def _open_file_background(bg_id: str) -> Image.Image:
+    # Find the matching file by slugified stem.
+    d = _images_dir()
+    if not d.exists() or not d.is_dir():
+        raise KeyError(f"Unknown background '{bg_id}'")
+
+    matches: list[Path] = []
+    for p in d.iterdir():
+        if p.is_file() and p.suffix.lower() in _ALLOWED_EXTS and _slugify(p.stem) == bg_id:
+            matches.append(p)
+    if not matches:
+        raise KeyError(f"Unknown background '{bg_id}'")
+    # If duplicates exist, just pick the first by name.
+    p = sorted(matches)[0]
+    return Image.open(p).convert("RGB")
+
+
+def _cover_resize(img: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Resize/crop like CSS object-fit: cover."""
+    tw, th = size
+    if tw <= 0 or th <= 0:
+        raise ValueError("Invalid background size")
+    iw, ih = img.size
+    if iw <= 0 or ih <= 0:
+        raise ValueError("Invalid source image size")
+    s = max(tw / iw, th / ih)
+    nw = max(1, int(iw * s))
+    nh = max(1, int(ih * s))
+    resized = img.resize((nw, nh), resample=Image.Resampling.LANCZOS)
+    left = (nw - tw) // 2
+    top = (nh - th) // 2
+    return resized.crop((left, top, left + tw, top + th))
 
 
 def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -75,6 +181,12 @@ def generate_background(bg_id: str, size: tuple[int, int]) -> Image.Image:
     w, h = size
     if w <= 0 or h <= 0:
         raise ValueError("Invalid background size")
+
+    # Prefer backgrounds from /images folder if present.
+    fb = file_backgrounds()
+    if fb and any(b.id == bg_id for b in fb):
+        src = _open_file_background(bg_id)
+        return _cover_resize(src, size)
 
     if bg_id == "studio_neutral":
         sky = _linear_gradient(size, (245, 245, 246), (220, 220, 222))
