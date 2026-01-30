@@ -1,12 +1,14 @@
-/* Aucto.ch zhaku-style UI driver (uses existing FastAPI endpoints) */
+/* zhaku.eu UI driver (uses existing FastAPI endpoints) */
 /* global window, document, fetch, navigator */
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-// If you host the frontend separately (e.g. 1a-hosting), set this BEFORE loading app.js:
-//   <script>window.API_BASE_URL="https://bg-web-production.up.railway.app";</script>
+// When frontend and backend are on different domains, set these BEFORE loading app.js:
+//   <script>window.API_BASE_URL="https://your-app.up.railway.app";</script>
+//   <script>window.API_KEY="your-secret";</script>   // optional, must match Railway API_KEY
 const API_BASE = String(window.API_BASE_URL || "").replace(/\/+$/, "");
+const API_KEY = typeof window !== "undefined" ? (window.API_KEY || "") : "";
 function apiUrl(pathOrUrl) {
   const s = String(pathOrUrl || "");
   if (!s) return s;
@@ -15,16 +17,16 @@ function apiUrl(pathOrUrl) {
 }
 
 function withToken(url) {
-  // Ensure the token is applied to the API host (not the frontend host)
   const full = apiUrl(url);
-  if (!state.clientToken) return full;
+  const tok = API_KEY || state.clientToken;
+  if (!tok) return full;
   try {
     const u = new URL(full, window.location.href);
-    if (!u.searchParams.get("token")) u.searchParams.set("token", state.clientToken);
+    if (!u.searchParams.get("token")) u.searchParams.set("token", tok);
     return u.toString();
   } catch {
     const sep = full.includes("?") ? "&" : "?";
-    return `${full}${sep}token=${encodeURIComponent(state.clientToken)}`;
+    return `${full}${sep}token=${encodeURIComponent(tok)}`;
   }
 }
 
@@ -73,20 +75,46 @@ function uid() {
 
 async function api(path, opts = {}) {
   const headers = { ...(opts.headers || {}) };
-  if (state.clientToken) headers["x-client-token"] = state.clientToken;
+  if (API_KEY) headers["Authorization"] = `Bearer ${API_KEY}`;
+  else if (state.clientToken) headers["x-client-token"] = state.clientToken;
 
-  const res = await fetch(apiUrl(path), {
-    credentials: "omit",
-    ...opts,
-    headers,
-  });
+  const url = apiUrl(path);
+  if (!url.startsWith("http") && !url.startsWith("/")) {
+    throw new Error(
+      "API_BASE_URL not set. When frontend is on a different host than the backend, set window.API_BASE_URL to your backend URL (e.g. https://your-app.up.railway.app)."
+    );
+  }
+
+  let res;
+  try {
+    res = await fetch(url, {
+      credentials: "omit",
+      ...opts,
+      headers,
+    });
+  } catch (e) {
+    const offline = typeof navigator !== "undefined" && navigator && navigator.onLine === false;
+    const origin = (typeof window !== "undefined" && window.location && window.location.origin) || "";
+    const hint = offline
+      ? "You are offline. Reconnect and try again."
+      : "Backend unreachable (CORS or wrong URL).\n\n" +
+        "1) Set window.API_BASE_URL to your backend URL (e.g. https://your-app.up.railway.app).\n" +
+        "2) On Railway → Variables set CORS_ORIGINS=* or CORS_ORIGINS=https://zhaku.eu\n" +
+        "3) If using API_KEY, set it on Railway and window.API_KEY in the frontend.\n\n" +
+        `From: ${origin}\nTo: ${url}`;
+    throw new Error(`Failed to fetch.\n\n${hint}`);
+  }
   if (!res.ok) {
     const txt = await res.text();
+    let msg = txt;
     try {
-      throw new Error(JSON.parse(txt).detail || txt);
-    } catch {
-      throw new Error(txt);
+      const j = JSON.parse(txt);
+      msg = j.detail || (Array.isArray(j.detail) ? j.detail[0]?.msg || txt : txt);
+    } catch {}
+    if (res.status === 401) {
+      msg += "\n\nFix: Set window.API_BASE_URL to your backend URL and, if using API_KEY, set window.API_KEY to match Railway.";
     }
+    throw new Error(msg);
   }
   const ct = res.headers.get("content-type") || "";
   if (ct.includes("application/json")) return await res.json();
@@ -113,10 +141,14 @@ function setWatermarkNotice() {
 }
 
 async function initClient() {
-  let tok = localStorage.getItem("aucto_client_token");
+  if (API_KEY) {
+    state.clientToken = "__api_key__";
+    return;
+  }
+  let tok = localStorage.getItem("zhaku_client_token");
   if (!tok) {
     tok = uid();
-    localStorage.setItem("aucto_client_token", tok);
+    localStorage.setItem("zhaku_client_token", tok);
   }
   state.clientToken = tok;
   await api("/api/client/register", {
@@ -643,7 +675,7 @@ async function downloadAllZip() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "aucto_processed.zip";
+  a.download = "zhaku_processed.zip";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -655,7 +687,7 @@ function bind() {
   // Help
   $("#help-btn")?.addEventListener("click", () => {
     alert(
-      "Aucto.ch — Guide\n\n" +
+      "zhaku.eu — Guide\n\n" +
         "IMPORTANT: Use EXTERIOR pictures only.\n\n" +
         "1) Upload your car photos\n" +
         "2) Wait for background removal\n" +
@@ -879,11 +911,16 @@ function bind() {
 
 async function boot() {
   bind();
-  await initClient();
-  await loadBackgrounds();
-  await loadMe();
-  await checkCheckoutReturn();
   showScreen("upload");
+  try {
+    await initClient();
+    await loadBackgrounds();
+    await loadMe();
+    await checkCheckoutReturn();
+  } catch (e) {
+    console.error("Boot error:", e);
+    alert("Could not reach backend.\n\n" + (e?.message || e) + "\n\nSet window.API_BASE_URL and CORS_ORIGINS if frontend and backend are on different domains.");
+  }
 }
 
 boot().catch((e) => {

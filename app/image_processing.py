@@ -79,7 +79,7 @@ def _make_watermark_layer(size: tuple[int, int], text: str, angle_deg: float, op
     return layer
 
 
-def apply_watermark_on_car(car_rgba: Image.Image, angle_deg: float, text: str = "aucto.ch") -> Image.Image:
+def apply_watermark_on_car(car_rgba: Image.Image, angle_deg: float, text: str = "zhaku.eu") -> Image.Image:
     """
     Repeated subtle watermark, clipped to the car alpha mask.
     Angle aligned with car orientation (angle_deg).
@@ -115,7 +115,7 @@ def render_composite(
     background_rgb: Image.Image,
     params: RenderParams,
     paid: bool,
-    watermark_text: str = "aucto.ch",
+    watermark_text: str = "zhaku.eu",
 ) -> Image.Image:
     """
     Produces an RGBA composite at the cutout's native resolution.

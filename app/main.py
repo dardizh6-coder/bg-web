@@ -9,6 +9,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+# Resolve paths from this file so app works from any cwd (local + Docker).
+_BASE_DIR = Path(__file__).resolve().parent.parent
+_STATIC_DIR = _BASE_DIR / "app" / "static"
+_INDEX_HTML = _STATIC_DIR / "index.html"
+
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
@@ -27,19 +32,24 @@ from app.worker import remove_background_to_file
 
 app = FastAPI(title="Car Photo Processor", version="1.0.0")
 
-if getattr(settings, "CORS_ORIGINS", None):
-    origins = settings.CORS_ORIGINS
+# CORS: in development allow all; in production use CORS_ORIGINS or API_KEY.
+_origins = getattr(settings, "CORS_ORIGINS", None) or []
+_use_cors = _origins or getattr(settings, "API_KEY", None) or settings.APP_ENV == "development"
+if _use_cors:
+    origins = _origins if _origins else ["*"]
+    if (getattr(settings, "API_KEY", None) or settings.APP_ENV == "development") and not _origins:
+        origins = ["*"]
     allow_credentials = False if "*" in origins else True
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins if origins else [],
+        allow_origins=origins,
         allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
 app.include_router(admin_router)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 
 def _require_secret() -> None:
@@ -62,18 +72,29 @@ def _startup() -> None:
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> FileResponse:
-    return FileResponse("app/static/index.html")
+    return FileResponse(str(_INDEX_HTML))
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 def _client_token(request: Request) -> str | None:
-    # Cross-domain frontend hosting: allow token via query parameter for <img>/<canvas> loads.
+    # Optional API_KEY: Authorization Bearer (Railway-style simple auth).
+    api_key = getattr(settings, "API_KEY", None)
+    if api_key:
+        auth = request.headers.get("authorization")
+        if auth and auth.startswith("Bearer ") and auth[7:].strip() == api_key:
+            return "__api_key__"
+        q = request.query_params.get("token")
+        if q and q == api_key:
+            return "__api_key__"
     tok = request.query_params.get("token")
     if tok:
         return tok
     tok = request.cookies.get("client_token")
     if tok:
         return tok
-    # Fallback: allow token via header for dev/testing.
     return request.headers.get("x-client-token")
 
 
@@ -451,7 +472,7 @@ def render_zip(request: Request, body: ZipIn) -> StreamingResponse:
             zf.writestr(f"{it.image_id}.{ext}", data)
 
     tmp.seek(0)
-    headers = {"Content-Disposition": 'attachment; filename="aucto_processed.zip"'}
+    headers = {"Content-Disposition": 'attachment; filename="zhaku_processed.zip"'}
     return StreamingResponse(tmp, media_type="application/zip", headers=headers)
 
 

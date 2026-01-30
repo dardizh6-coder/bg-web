@@ -35,6 +35,7 @@ Copy `.env.example` → `.env` and set:
 ## Deploy (Railway)
 
 - Use the included `Dockerfile`
-- Set the env vars in Railway
-- If your frontend is hosted on another domain (example: `https://rbg.aucto.ch`), set:
-  - `CORS_ORIGINS=https://rbg.aucto.ch,https://www.rbg.aucto.ch`
+- Set the env vars in Railway:
+  - **Required:** `APP_SECRET`, `ADMIN_PASSWORD`, `PUBLIC_BASE_URL` (e.g. `https://zhaku.eu` or your Railway URL)
+  - **CORS:** If frontend is on another domain, set `CORS_ORIGINS=https://zhaku.eu,https://www.zhaku.eu` or `CORS_ORIGINS=*` to allow any origin
+  - **Optional API_KEY:** Set `API_KEY=your-secret`; then in the frontend set `window.API_BASE_URL` to your Railway URL and `window.API_KEY` to the same value. All requests will use `Authorization: Bearer <API_KEY>` and no client registration is needed.

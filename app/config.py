@@ -53,9 +53,14 @@ class Settings:
             self.MAX_WORKERS = 1 if self.APP_ENV == "production" else 2
 
         # CORS for hosting frontend separately (comma-separated origins).
-        # Example: CORS_ORIGINS=https://rbg.aucto.ch,https://www.rbg.aucto.ch
+        # Example: CORS_ORIGINS=https://zhaku.eu,https://www.zhaku.eu
+        # Use CORS_ORIGINS=* to allow any origin (e.g. Railway + separate frontend).
         raw = _env("CORS_ORIGINS", "") or ""
         self.CORS_ORIGINS: list[str] = [o.strip() for o in raw.split(",") if o.strip()]
+
+        # Optional shared API key for simple auth (Railway etc.). If set, frontend can send
+        # Authorization: Bearer <API_KEY> instead of (or in addition to) client token.
+        self.API_KEY: str = _env("API_KEY", "") or ""
 
 
 settings = Settings()

@@ -219,7 +219,7 @@ def generate_background(bg_id: str, size: tuple[int, int]) -> Image.Image:
         overlay = Image.new("RGBA", size, (0, 0, 0, 0))
         d = ImageDraw.Draw(overlay)
         step = max(140, min(w, h) // 6)
-        txt = "aucto.ch"
+        txt = "zhaku.eu"
         f = _font(max(16, step // 6))
         for y in range(-step, h + step, step):
             for x in range(-step, w + step, step):
